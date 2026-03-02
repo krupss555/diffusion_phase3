@@ -35,7 +35,7 @@ nohup python3 eval/train_classifier.py \\
 #   --lr         2e-4   (with cosine schedule + warmup)
 
 nohup_step2_fresh = """
-nohup python3 train_diffusion.py \
+nohup python3 diffusion/train_diffusion.py \
     --nc_path    data/sral_s3_level1b_2023/measurement.nc \
     --out_dir    ./runs/checkpoints \
     --epochs     500 \
@@ -46,7 +46,7 @@ nohup python3 train_diffusion.py \
     --cfg_scale  2.0  \
     --cfg_prob   0.10 \
     --num_workers 4   \
-> logs/train_ph3_v1.log 2>&1 &
+> logs/train_ph3_v2.log 2>&1 &
 """
 
 nohup_step2_resume = """

@@ -26,7 +26,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from typing import Optional  # <--- Added for compatibility
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Positional / Time Embedding
@@ -221,7 +221,7 @@ class UNet1D(nn.Module):
     def forward(self,
                 x:        torch.Tensor,
                 t:        torch.Tensor,
-                cond_emb: torch.Tensor | None = None) -> torch.Tensor:
+                cond_emb: Optional[torch.Tensor] = None) -> torch.Tensor: # <--- FIXED
         """
         x        : (B, 1, 128)  noisy waveform
         t        : (B,)         long timestep indices

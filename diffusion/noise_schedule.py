@@ -16,6 +16,7 @@ Physics guidance (Li et al. 2025):
 import torch
 import numpy as np
 import torch.nn.functional as F
+from typing import Optional, Tuple  # <--- Added for compatibility
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -69,8 +70,8 @@ class DDPMSchedule:
     def q_sample(self,
                  x0:    torch.Tensor,
                  t:     torch.Tensor,
-                 noise: torch.Tensor | None = None
-                 ) -> tuple[torch.Tensor, torch.Tensor]:
+                 noise: Optional[torch.Tensor] = None # <--- FIXED
+                 ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Sample x_t ~ q(x_t | x_0).
         x0    : (B, 1, 128)
@@ -186,7 +187,7 @@ def smoothness_guidance_grad(x0_pred: torch.Tensor,
 
 
 def compute_reference_stats(waveforms_np: np.ndarray
-                              ) -> dict[str, torch.Tensor]:
+                              ) -> dict: # Fixed type hint
     """
     Compute physics reference statistics from training waveforms.
 
