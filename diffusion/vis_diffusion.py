@@ -1,11 +1,5 @@
 """
-vis_diffusion.py – FIXED visualization with matched surface types
-=================================================================
-KEY FIX: Randomly selects a surface type, then generates fake WITH
-THAT SAME TYPE and finds a real sample WITH THAT SAME TYPE.
-
-This fixes your bug: "u keep visualizing the fake fixed ocean class  
-signal to any random real signal class"
+vis_diffusion.py - FIXED with proper DDIM sampling
 """
 
 import os
@@ -33,17 +27,8 @@ def _stft_power(sig, win=32, hop=8):
 
 @torch.no_grad()
 def save_diffusion_vis(model, conditioner, schedule, val_loader,
-                       epoch: int, out_dir: str, device: str,
-                       physics_stats: dict = None):
-    """
-    Generate and visualize with MATCHED surface types.
-    
-    NEW BEHAVIOR:
-    1. Randomly pick surf_type ∈ {0, 1, 2}
-    2. Find REAL sample with that type
-    3. Generate FAKE with SAME type
-    4. Plot them side-by-side for proper comparison
-    """
+                       epoch, out_dir, device, physics_stats=None):
+    """FIXED: Uses proper DDIM sampling instead of broken quick sampling."""
     os.makedirs(out_dir, exist_ok=True)
     
     model.eval()
@@ -55,64 +40,51 @@ def save_diffusion_vis(model, conditioner, schedule, val_loader,
     real_batch = next(iter(val_loader))
     real_sig, real_surf, real_rng, real_rr = real_batch
     
-    # ========== KEY FIX ==========
-    # Step 1: Randomly pick a surface type
+    # Randomly pick surface type and find matching real sample
     viz_surf_type = np.random.randint(0, 3)
-    
-    # Step 2: Find a REAL sample with this type
     mask = (real_surf == viz_surf_type).numpy()
     if mask.sum() == 0:
-        # Fallback if type not in batch
         viz_surf_type = int(real_surf[0].item())
         real_idx = 0
     else:
         real_idx = np.where(mask)[0][0]
     
-    real_wfm = real_sig[real_idx]  # (1, 128)
+    real_wfm = real_sig[real_idx]
     
-    # Step 3: Generate FAKE with SAME type
+    # Generate fake with SAME type
     surf_t = torch.tensor([viz_surf_type], dtype=torch.long, device=device)
     rng_t = torch.randn(1, device=device)
     rr_t = torch.randn(1, device=device)
-    # =============================
-    
     cond_emb = conditioner(surf_t, rng_t, rr_t)
     
-    # Quick DDPM sampling (every 10th step for speed)
-    x_t = torch.randn(1, 1, 128, device=device)
-    sample_steps = list(range(schedule.T - 1, -1, -10))
+    # ========== FIXED: PROPER DDIM SAMPLING ==========
+    # Import DDIM sampler
+    from diffusion.noise_schedule import DDIMSampler
     
-    for t_val in sample_steps:
-        t = torch.full((1,), t_val, device=device, dtype=torch.long)
-        eps_pred = model(x_t, t, cond_emb)
-        
-        alpha_bar_t = schedule.alpha_bars[t_val]
-        sqrt_ab = alpha_bar_t.sqrt()
-        sqrt_1mab = (1.0 - alpha_bar_t).sqrt()
-        x0_pred = (x_t - sqrt_1mab * eps_pred) / (sqrt_ab + 1e-8)
-        x0_pred = x0_pred.clamp(-1, 1)
-        
-        if t_val > 0:
-            alpha_t = schedule.alphas[t_val]
-            beta_t = schedule.betas[t_val]
-            alpha_bar_prev = schedule.alpha_bars_prev[t_val]
-            
-            coef1 = (alpha_t.sqrt() * beta_t) / (1.0 - alpha_bar_t)
-            coef2 = ((1.0 - alpha_bar_prev) * (1.0 - alpha_t).sqrt()) / (1.0 - alpha_bar_t)
-            mean = coef1 * x0_pred + coef2 * x_t
-            
-            sigma = beta_t.sqrt()
-            noise = torch.randn_like(x_t)
-            x_t = mean + sigma * noise
-        else:
-            x_t = x0_pred
+    sampler = DDIMSampler(
+        schedule, 
+        ddim_steps=50,   # 50 DDIM steps is enough for visualization
+        eta=0.0,         # Deterministic
+        cfg_scale=2.0    # Classifier-free guidance
+    )
     
-    fake_wfm = x_t[0]
+    fake_wfm = sampler.sample(
+        model, cond_emb,
+        shape=(1, 1, 128),
+        device=device
+    )[0]  # (1, 128)
+    # =================================================
     
-    # Plot
+    # Convert to numpy
     real_np = _to_np(real_wfm)
     fake_np = _to_np(fake_wfm)
     
+    # ========== VARIANCE CHECK ==========
+    if fake_np.std() < 0.05:
+        print(f"  ⚠️  WARNING: Generated std={fake_np.std():.4f} is TOO LOW!")
+    # ====================================
+    
+    # Create visualization
     surf_label = surf_names[viz_surf_type]
     title = f"Epoch {epoch} – Diffusion | {surf_label}"
     
