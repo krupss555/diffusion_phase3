@@ -32,34 +32,40 @@ python eval/fid_1d.py \\
 """
 
 
+"""
+eval/fid_1d.py
+==============
+Fréchet Inception Distance (FID) adapted for 1D radar waveforms.
+"""
+
+"""
+eval/fid_1d.py
+==============
+Fréchet Inception Distance (FID) adapted for 1D radar waveforms.
+"""
+
+"""
+eval/fid_1d.py
+==============
+Fréchet Inception Distance (FID) adapted for 1D radar waveforms.
+"""
+
 import argparse
 import os
 import sys
-from typing import Optional, Tuple  # <--- FIXED IMPORT
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
 from scipy.linalg import sqrtm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from eval.train_classifier import ResNet1DClassifier
+from eval.train_classifier import ResNet1DClassifier, load_classifier # <--- IMPORT FIXED
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Feature Extraction
 # ──────────────────────────────────────────────────────────────────────────────
-
-def load_classifier(ckpt_path: str, device: str) -> ResNet1DClassifier:
-    """Load the trained ResNet1D classifier (eval mode)."""
-    ckpt  = torch.load(ckpt_path, map_location=device)
-    model = ResNet1DClassifier(
-        num_classes=ckpt.get("num_classes", 3),
-        feat_dim=ckpt.get("feat_dim", 256),
-    ).to(device)
-    model.load_state_dict(ckpt["model_state"])
-    model.eval()
-    return model
-
 
 @torch.no_grad()
 def extract_features(waveforms: np.ndarray,
@@ -81,7 +87,6 @@ def extract_features(waveforms: np.ndarray,
 # FID Computation
 # ──────────────────────────────────────────────────────────────────────────────
 
-# FIXED: Changed tuple[...] to Tuple[...]
 def compute_activation_statistics(features: np.ndarray
                                    ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute mean and covariance of feature matrix."""
@@ -181,14 +186,22 @@ def compute_per_class_fid(real_wfm:   np.ndarray,
 
 def load_real_waveforms_from_nc(nc_path: str,
                                  split:   str = "test",
-                                 n_max:   int = 10000) -> Tuple[np.ndarray, np.ndarray]: # FIXED
+                                 n_max:   int = 10000) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load real waveforms from the NetCDF dataset.
     """
     from dataset import SentinelDataset
-    ds = SentinelDataset(nc_path, split=split)
-    wfm  = ds.waveform[:n_max]   # (N, 128)
-    surf = ds.surf_type[:n_max]  # (N,)
+    
+    # Load training stats first
+    if split != "train":
+        train_ds = SentinelDataset(nc_path, split="train")
+        stats = train_ds.norm_stats
+        ds = SentinelDataset(nc_path, split=split, norm_stats=stats)
+    else:
+        ds = SentinelDataset(nc_path, split=split)
+
+    wfm  = ds.waveform[:n_max]
+    surf = ds.surf_type[:n_max]
     return wfm.astype(np.float32), surf.astype(np.int64)
 
 

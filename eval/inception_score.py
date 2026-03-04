@@ -32,18 +32,23 @@ eval/inception_score.py
 =======================
 Inception Score (IS) for Sentinel-3 SRAL generated waveforms.
 """
+"""
+eval/inception_score.py
+=======================
+Inception Score (IS) for Sentinel-3 SRAL generated waveforms.
+"""
 
 import argparse
 import os
 import sys
-from typing import Tuple # <--- FIXED IMPORT
+from typing import Tuple
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from eval.train_classifier import ResNet1DClassifier
+from eval.train_classifier import ResNet1DClassifier, load_classifier # <--- IMPORT FIXED
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -74,7 +79,6 @@ def get_softmax_probs(waveforms: np.ndarray,
 # IS Computation
 # ──────────────────────────────────────────────────────────────────────────────
 
-# FIXED: Tuple[...]
 def inception_score_from_probs(probs:  np.ndarray,
                                 splits: int = 10
                                 ) -> Tuple[float, float]:
@@ -106,15 +110,8 @@ def compute_inception_score(waveforms: np.ndarray,
     """
     End-to-end IS computation.
     """
-    from eval.train_classifier import load_classifier  # avoid circular if standalone
-    # Re-implement inline to avoid import issues when run standalone
-    ckpt  = torch.load(cls_ckpt, map_location=device)
-    model = ResNet1DClassifier(
-        num_classes=ckpt.get("num_classes", 3),
-        feat_dim=ckpt.get("feat_dim", 256),
-    ).to(device)
-    model.load_state_dict(ckpt["model_state"])
-    model.eval()
+    # Use the shared loading function
+    model = load_classifier(cls_ckpt, device)
 
     print(f"[IS] Computing softmax probs for {len(waveforms)} samples …")
     probs = get_softmax_probs(waveforms, model, device)
@@ -123,11 +120,14 @@ def compute_inception_score(waveforms: np.ndarray,
 
     # Also compute accuracy proxy: if IS ≈ num_classes, each class is equally predicted
     marginal_entropy = -(probs.mean(0) * np.log(probs.mean(0) + 1e-10)).sum()
+    
+    # Get num_classes from the model's fc layer
+    num_classes = model.fc.out_features
 
     return {
         "is_mean":          is_mean,
         "is_std":           is_std,
-        "num_classes":      ckpt.get("num_classes", 3),
+        "num_classes":      num_classes,
         "marginal_entropy": float(marginal_entropy),
         "n_samples":        len(waveforms),
         "n_splits":         splits,

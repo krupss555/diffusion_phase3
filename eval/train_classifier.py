@@ -19,6 +19,12 @@ python eval/train_classifier.py \\
 ──────────────────────────────────────────────────────────────────────────────
 """
 
+"""
+eval/train_classifier.py
+=========================
+Train a 1D ResNet classifier on Sentinel-3 SRAL waveforms.
+"""
+
 import argparse
 import os
 import sys
@@ -63,9 +69,6 @@ class ResNet1DClassifier(nn.Module):
     """
     Input  : (B, 1, 128) waveform
     Output : (B, num_classes) logits
-
-    Feature extraction mode: returns (B, feat_dim) from penultimate layer.
-    feat_dim = 256 (matches self.feat_dim attribute)
     """
 
     def __init__(self, num_classes: int = 3, feat_dim: int = 256):
@@ -102,6 +105,22 @@ class ResNet1DClassifier(nn.Module):
         h = self.features(x)
         h = self.drop(h)
         return self.fc(h)
+
+
+# ─── Added Helper Function ────────────────────────────────────────────────────
+
+def load_classifier(ckpt_path: str, device: str) -> ResNet1DClassifier:
+    """Load the trained ResNet1D classifier (eval mode)."""
+    ckpt  = torch.load(ckpt_path, map_location=device)
+    model = ResNet1DClassifier(
+        num_classes=ckpt.get("num_classes", 3),
+        feat_dim=ckpt.get("feat_dim", 256),
+    ).to(device)
+    model.load_state_dict(ckpt["model_state"])
+    model.eval()
+    return model
+
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -46,12 +46,18 @@ eval/eval_all.py
 Unified evaluation scorecard: GAN vs Physics-Informed Diffusion Model.
 """
 
+"""
+eval/eval_all.py
+================
+Unified evaluation scorecard: GAN vs Physics-Informed Diffusion Model.
+"""
+
 import argparse
 import json
 import os
 import sys
 from datetime import datetime
-from typing import Optional, Tuple, List, Dict  # <--- FIXED IMPORT
+from typing import Optional, Tuple, List, Dict
 
 import numpy as np
 
@@ -66,7 +72,6 @@ from eval.dtw_similarity   import compute_all_similarity_metrics
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-# FIXED: Tuple[...]
 def load_real_data(nc_path: str, split: str = "test", n_max: int = 5000
                    ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -75,13 +80,24 @@ def load_real_data(nc_path: str, split: str = "test", n_max: int = 5000
     """
     from dataset import SentinelDataset
     print(f"[Eval] Loading real data (split={split}, n_max={n_max}) …")
-    ds   = SentinelDataset(nc_path, split=split)
+    
+    # ── FIX: Load training stats first for consistency ──
+    if split != "train":
+        print("[Eval] Pre-loading training stats to normalize test data...")
+        # We assume the training split is available to compute valid normalization
+        train_ds = SentinelDataset(nc_path, split="train")
+        stats = train_ds.norm_stats
+        # Now load the requested split using those stats
+        ds = SentinelDataset(nc_path, split=split, norm_stats=stats)
+    else:
+        ds = SentinelDataset(nc_path, split=split)
+    # ────────────────────────────────────────────────────
+
     wfm  = ds.waveform[:n_max].astype(np.float32)
     surf = ds.surf_type[:n_max].astype(np.int64)
     return wfm, surf
 
 
-# FIXED: Tuple[...]
 def load_generated_data(gen_dir: str, n_max: int = 5000
                          ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -183,7 +199,6 @@ def eval_real_baseline(real_wfm:  np.ndarray,
 # Pretty-print table
 # ──────────────────────────────────────────────────────────────────────────────
 
-# FIXED: List[dict]
 def print_scorecard(all_results: List[dict]):
     """Print a formatted comparison table."""
     names   = [r["model"] for r in all_results]
