@@ -31,10 +31,11 @@ python eval/fid_1d.py \\
 ──────────────────────────────────────────────────────────────────────
 """
 
+
 import argparse
 import os
 import sys
-from typing import Optional
+from typing import Optional, Tuple  # <--- FIXED IMPORT
 
 import numpy as np
 import torch
@@ -67,9 +68,6 @@ def extract_features(waveforms: np.ndarray,
                      batch_size: int = 512) -> np.ndarray:
     """
     Extract feature vectors from waveforms using the classifier backbone.
-
-    waveforms : (N, 128) float32  normalised to [-1, 1]
-    returns   : (N, feat_dim) float32
     """
     all_feats = []
     for i in range(0, len(waveforms), batch_size):
@@ -83,8 +81,9 @@ def extract_features(waveforms: np.ndarray,
 # FID Computation
 # ──────────────────────────────────────────────────────────────────────────────
 
+# FIXED: Changed tuple[...] to Tuple[...]
 def compute_activation_statistics(features: np.ndarray
-                                   ) -> tuple[np.ndarray, np.ndarray]:
+                                   ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute mean and covariance of feature matrix."""
     mu  = features.mean(axis=0)
     cov = np.cov(features, rowvar=False)
@@ -119,11 +118,6 @@ def compute_fid(real_wfm:   np.ndarray,
                 batch_size: int = 512) -> dict:
     """
     End-to-end FID computation.
-
-    real_wfm  : (N, 128) float32
-    fake_wfm  : (M, 128) float32
-    cls_ckpt  : path to trained classifier checkpoint
-    Returns   : dict with fid, mu_real, mu_fake, feat_dim
     """
     model = load_classifier(cls_ckpt, device)
 
@@ -157,8 +151,6 @@ def compute_per_class_fid(real_wfm:   np.ndarray,
                            device:     str = "cpu") -> dict:
     """
     Compute FID for each surface type independently.
-
-    Returns dict: {overall: float, Ocean: float, Ice: float, Land: float}
     """
     model = load_classifier(cls_ckpt, device)
 
@@ -187,29 +179,18 @@ def compute_per_class_fid(real_wfm:   np.ndarray,
     return results
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Load real waveforms from dataset (helper)
-# ──────────────────────────────────────────────────────────────────────────────
-
 def load_real_waveforms_from_nc(nc_path: str,
                                  split:   str = "test",
-                                 n_max:   int = 10000) -> tuple[np.ndarray, np.ndarray]:
+                                 n_max:   int = 10000) -> Tuple[np.ndarray, np.ndarray]: # FIXED
     """
     Load real waveforms from the NetCDF dataset.
-    Returns (waveforms (N, 128), surf_types (N,))
     """
     from dataset import SentinelDataset
     ds = SentinelDataset(nc_path, split=split)
-    # Need training stats for consistent normalisation
-    # If test split, recompute by loading train first
     wfm  = ds.waveform[:n_max]   # (N, 128)
     surf = ds.surf_type[:n_max]  # (N,)
     return wfm.astype(np.float32), surf.astype(np.int64)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# CLI
-# ──────────────────────────────────────────────────────────────────────────────
 
 def parse_args():
     p = argparse.ArgumentParser(description="1D FID for radar waveforms")

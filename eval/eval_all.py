@@ -40,12 +40,18 @@ python eval/eval_all.py \\
 ──────────────────────────────────────────────────────────────────────
 """
 
+"""
+eval/eval_all.py
+================
+Unified evaluation scorecard: GAN vs Physics-Informed Diffusion Model.
+"""
+
 import argparse
 import json
 import os
 import sys
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple, List, Dict  # <--- FIXED IMPORT
 
 import numpy as np
 
@@ -60,8 +66,9 @@ from eval.dtw_similarity   import compute_all_similarity_metrics
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+# FIXED: Tuple[...]
 def load_real_data(nc_path: str, split: str = "test", n_max: int = 5000
-                   ) -> tuple[np.ndarray, np.ndarray]:
+                   ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load real waveforms + surface type labels from the dataset.
     Returns (waveforms (N, 128), surf_types (N,))
@@ -74,8 +81,9 @@ def load_real_data(nc_path: str, split: str = "test", n_max: int = 5000
     return wfm, surf
 
 
+# FIXED: Tuple[...]
 def load_generated_data(gen_dir: str, n_max: int = 5000
-                         ) -> tuple[np.ndarray, np.ndarray]:
+                         ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load generated waveforms + surface type labels from a generated/ directory.
     """
@@ -175,7 +183,8 @@ def eval_real_baseline(real_wfm:  np.ndarray,
 # Pretty-print table
 # ──────────────────────────────────────────────────────────────────────────────
 
-def print_scorecard(all_results: list[dict]):
+# FIXED: List[dict]
+def print_scorecard(all_results: List[dict]):
     """Print a formatted comparison table."""
     names   = [r["model"] for r in all_results]
     col_w   = max(12, max(len(n) for n in names) + 2)

@@ -27,9 +27,16 @@ python eval/inception_score.py \\
 ──────────────────────────────────────────────────────────────────────
 """
 
+"""
+eval/inception_score.py
+=======================
+Inception Score (IS) for Sentinel-3 SRAL generated waveforms.
+"""
+
 import argparse
 import os
 import sys
+from typing import Tuple # <--- FIXED IMPORT
 
 import numpy as np
 import torch
@@ -50,9 +57,6 @@ def get_softmax_probs(waveforms: np.ndarray,
                       batch_size: int = 512) -> np.ndarray:
     """
     Compute softmax class probabilities for each generated waveform.
-
-    waveforms : (N, 128) float32
-    returns   : (N, num_classes) float32
     """
     model.eval()
     all_probs = []
@@ -70,15 +74,12 @@ def get_softmax_probs(waveforms: np.ndarray,
 # IS Computation
 # ──────────────────────────────────────────────────────────────────────────────
 
+# FIXED: Tuple[...]
 def inception_score_from_probs(probs:  np.ndarray,
                                 splits: int = 10
-                                ) -> tuple[float, float]:
+                                ) -> Tuple[float, float]:
     """
     Compute IS and its standard deviation across splits.
-
-    probs  : (N, num_classes) softmax probabilities
-    splits : number of random splits for std estimate
-    Returns: (mean_IS, std_IS)
     """
     N = len(probs)
     split_is = []
@@ -104,10 +105,6 @@ def compute_inception_score(waveforms: np.ndarray,
                              ) -> dict:
     """
     End-to-end IS computation.
-
-    waveforms : (N, 128) generated waveforms
-    cls_ckpt  : path to trained classifier checkpoint
-    Returns   : dict with is_mean, is_std, num_classes
     """
     from eval.train_classifier import load_classifier  # avoid circular if standalone
     # Re-implement inline to avoid import issues when run standalone
